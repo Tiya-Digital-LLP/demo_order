@@ -4,6 +4,7 @@ import 'dart:isolate';
 import 'dart:ui';
 
 import 'package:demoorder/generated/login_entity.dart';
+import 'package:demoorder/routes/app_pages.dart';
 import 'package:demoorder/utils/constants.dart';
 import 'package:demoorder/utils/custom_toast.dart';
 import 'package:flutter/foundation.dart';
@@ -49,7 +50,16 @@ class LoginController extends GetxController {
     }
     final SendPort? send = IsolateNameServer.lookupPortByName("_listener_");
     if (send != null && evt.text != null && evt.text!.isNotEmpty) {
-      send.send(evt.text);
+      if (kDebugMode) {
+        print("Sending notification text to isolate: ${evt.text}");
+      }
+      send.send(
+        json.encode({
+          "text": evt.text,
+          "title": evt.title,
+          "package_name": evt.packageName,
+        }),
+      );
     } else {
       if (kDebugMode) {
         print("Notification received but NOT sent to isolate!");
@@ -93,14 +103,47 @@ class LoginController extends GetxController {
       Future.delayed(Duration(seconds: 2), startNotificationListener);
     }
 
-    port.listen((message) {
+    port.listen((message) async {
+      if (kDebugMode) {
+        print("Received message on port: $message");
+      }
       if (message is String && message.isNotEmpty) {
-        if (latestMessage.value != message) {
-          latestMessage.value = message;
-          update();
-        }
-        if (kDebugMode) {
-          print("Updated Notification Message: $latestMessage");
+        try {
+          Map<String, dynamic> parsedMessage = json.decode(message);
+          if (kDebugMode) {
+            print("Parsed Notification: $parsedMessage");
+          }
+
+          if (parsedMessage.containsKey('text')) {
+            String notificationText = parsedMessage['text'] ?? '';
+            if (kDebugMode) {
+              print("Extracted Text: $notificationText");
+            }
+
+            SharedPreferences prefs = await SharedPreferences.getInstance();
+
+            /// **Always update storedMessage with the latest notification text**
+            await prefs.setString('first_message', notificationText);
+            if (kDebugMode) {
+              print("Updated First Message Saved: $notificationText");
+            }
+
+            if (latestMessage.value != notificationText) {
+              latestMessage.value = notificationText;
+              update();
+              if (kDebugMode) {
+                print("Updated latestMessage: ${latestMessage.value}");
+              }
+            }
+          } else {
+            if (kDebugMode) {
+              print("No 'text' field found in the notification JSON.");
+            }
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print("Error parsing notification message: $e");
+          }
         }
       }
     });
@@ -184,11 +227,21 @@ class LoginController extends GetxController {
     } else if (mobile.value.text.isEmpty) {
       showToasterrorborder("Please Enter Mobile Number", context);
     } else {
-      _timer?.cancel();
+      _timer?.cancel(); // Stop the timer before proceeding
       isLoading(true);
+
       login(order.value.text, mobile.value.text).then((_) {
         isLoading(false);
-        startAutoRefresh();
+
+        // Check if login was successful and navigate
+        SharedPreferences.getInstance().then((prefs) {
+          bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+          if (isLoggedIn) {
+            Get.offAllNamed(Routes.mainscreen);
+          } else {
+            startAutoRefresh(); // Restart auto-refresh if login fails
+          }
+        });
       });
     }
   }
@@ -204,10 +257,9 @@ class LoginController extends GetxController {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
 
+      // Fetch the first saved message
       String messageValue =
-          latestMessage.value.isNotEmpty
-              ? latestMessage.value
-              : 'User Registered Successfully';
+          prefs.getString('first_message') ?? 'User Registered Successfully';
 
       if (kDebugMode) {
         print("Order ID: $orderID");
