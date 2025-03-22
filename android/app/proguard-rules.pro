@@ -1,0 +1,7 @@
+-keep class org.apache.http.** { *; }
+-keep class com.google.gson.** { *; }
+-keepattributes Signature
+-keepattributes *Annotation*
+-dontwarn okhttp3.**
+-dontwarn org.apache.http.**
+-dontwarn com.google.gson.**

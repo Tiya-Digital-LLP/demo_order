@@ -7,18 +7,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:get/get.dart';
-
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeService();
-  Future.delayed(Duration(seconds: 2), () {
-    runApp(const MyApp());
-  });
+  runApp(const MyApp());
 }
 
-///  Ensures Background Service is Always Running
+/// Ensures Background Service is Always Running
 Future<void> initializeService() async {
   final service = FlutterBackgroundService();
 
@@ -70,6 +67,7 @@ void onStart(ServiceInstance service) async {
       if (kDebugMode) {
         print('Login Service Running on main.dart');
       }
+      debugPrint('Login Service Running on main.dart');
 
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String savedOrderID = prefs.getString('order_id') ?? '123';
@@ -97,7 +95,7 @@ bool onIosBackground(ServiceInstance service) {
   return true;
 }
 
-///  Main App
+/// Main App
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
 

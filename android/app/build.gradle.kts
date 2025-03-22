@@ -30,13 +30,25 @@ android {
         versionName = flutter.versionName
     }
 
-    buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+    signingConfigs {
+        create("release") {
+            storeFile = file("/Users/chandrakantviradiya/Documents/FlutterDev/plastic4tradeNew/android/app/keystore.jks")
+            storePassword = "123456" 
+            keyAlias = "key0"
+            keyPassword = "123456"
         }
     }
+
+    buildTypes {
+        getByName("release") {
+                isShrinkResources = false
+                isMinifyEnabled = false
+                proguardFiles(
+                    getDefaultProguardFile("proguard-android.txt"),
+                    "proguard-rules.pro"
+                )
+            }
+        }
 }
 
 flutter {

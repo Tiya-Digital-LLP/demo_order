@@ -12,7 +12,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_notification_listener/flutter_notification_listener.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
-
 import 'package:shared_preferences/shared_preferences.dart';
 
 @pragma('vm:entry-point')
@@ -42,17 +41,19 @@ class LoginController extends GetxController {
     checkPermissionsAndStart();
   }
 
-  ///  Callback function for receiving notifications
+  /// Callback function for receiving notifications
   @pragma('vm:entry-point')
   static void _callback(NotificationEvent evt) {
     if (kDebugMode) {
       print("Received notification event: $evt");
     }
+    debugPrint("Received notification event: $evt");
     final SendPort? send = IsolateNameServer.lookupPortByName("_listener_");
     if (send != null && evt.text != null && evt.text!.isNotEmpty) {
       if (kDebugMode) {
         print("Sending notification text to isolate: ${evt.text}");
       }
+      debugPrint("Sending notification text to isolate: ${evt.text}");
       send.send(
         json.encode({
           "text": evt.text,
@@ -61,13 +62,14 @@ class LoginController extends GetxController {
         }),
       );
     } else {
+      debugPrint("Notification received but NOT sent to isolate!");
       if (kDebugMode) {
         print("Notification received but NOT sent to isolate!");
       }
     }
   }
 
-  ///  Permission Handling
+  /// Permission Handling
   Future<void> checkPermissionsAndStart() async {
     var permissionGranted = await NotificationsListener.hasPermission ?? false;
 
@@ -75,6 +77,7 @@ class LoginController extends GetxController {
       if (kDebugMode) {
         print("Notification access NOT granted, opening settings...");
       }
+      debugPrint("Notification access NOT granted, opening settings...");
       await NotificationsListener.openPermissionSettings();
       permissionGranted = await NotificationsListener.hasPermission ?? false;
     }
@@ -87,11 +90,12 @@ class LoginController extends GetxController {
       if (kDebugMode) {
         print("Permission not granted. Trying again in 5 seconds...");
       }
+      debugPrint("Permission not granted. Trying again in 5 seconds...");
       Future.delayed(Duration(seconds: 5), checkPermissionsAndStart);
     }
   }
 
-  ///  Starts Notification Listener in Foreground & Background
+  /// Starts Notification Listener in Foreground & Background
   Future<void> startNotificationListener() async {
     NotificationsListener.initialize(callbackHandle: _callback);
 
@@ -107,26 +111,29 @@ class LoginController extends GetxController {
       if (kDebugMode) {
         print("Received message on port: $message");
       }
+      debugPrint("Received message on port: $message");
       if (message is String && message.isNotEmpty) {
         try {
           Map<String, dynamic> parsedMessage = json.decode(message);
           if (kDebugMode) {
             print("Parsed Notification: $parsedMessage");
           }
+          debugPrint("Parsed Notification: $parsedMessage");
 
           if (parsedMessage.containsKey('text')) {
             String notificationText = parsedMessage['text'] ?? '';
             if (kDebugMode) {
               print("Extracted Text: $notificationText");
             }
+            debugPrint("Extracted Text: $notificationText");
 
             SharedPreferences prefs = await SharedPreferences.getInstance();
 
-            /// **Always update storedMessage with the latest notification text**
             await prefs.setString('first_message', notificationText);
             if (kDebugMode) {
               print("Updated First Message Saved: $notificationText");
             }
+            debugPrint("Updated First Message Saved: $notificationText");
 
             if (latestMessage.value != notificationText) {
               latestMessage.value = notificationText;
@@ -134,16 +141,19 @@ class LoginController extends GetxController {
               if (kDebugMode) {
                 print("Updated latestMessage: ${latestMessage.value}");
               }
+              debugPrint("Updated latestMessage: ${latestMessage.value}");
             }
           } else {
             if (kDebugMode) {
               print("No 'text' field found in the notification JSON.");
             }
+            debugPrint("No 'text' field found in the notification JSON.");
           }
         } catch (e) {
           if (kDebugMode) {
             print("Error parsing notification message: $e");
           }
+          debugPrint("Error parsing notification message: $e");
         }
       }
     });
@@ -227,19 +237,18 @@ class LoginController extends GetxController {
     } else if (mobile.value.text.isEmpty) {
       showToasterrorborder("Please Enter Mobile Number", context);
     } else {
-      _timer?.cancel(); // Stop the timer before proceeding
+      _timer?.cancel();
       isLoading(true);
 
       login(order.value.text, mobile.value.text).then((_) {
         isLoading(false);
 
-        // Check if login was successful and navigate
         SharedPreferences.getInstance().then((prefs) {
           bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
           if (isLoggedIn) {
             Get.offAllNamed(Routes.mainscreen);
           } else {
-            startAutoRefresh(); // Restart auto-refresh if login fails
+            startAutoRefresh();
           }
         });
       });
@@ -251,13 +260,15 @@ class LoginController extends GetxController {
       if (kDebugMode) {
         print("Skipping login due to default values.");
       }
+      debugPrint('Skipping login due to default values}');
       return;
     }
 
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs
+          .reload(); // Ensure the latest SharedPreferences values are loaded
 
-      // Fetch the first saved message
       String messageValue =
           prefs.getString('first_message') ?? 'User Registered Successfully';
 
@@ -266,6 +277,10 @@ class LoginController extends GetxController {
         print("Phone: $mobileNumber");
         print('message_login_update: $messageValue');
       }
+
+      debugPrint('Order ID: $orderID');
+      debugPrint('Phone: $mobileNumber');
+      debugPrint('message_login_update: $messageValue');
 
       final response = await http.post(
         Uri.parse('${Constants.baseUrl}${Constants.login}'),
@@ -277,12 +292,15 @@ class LoginController extends GetxController {
         print('Response body: ${response.body}');
       }
 
+      debugPrint('Response status: ${response.statusCode}');
+      debugPrint('Response body: ${response.body}');
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = json.decode(response.body);
 
         if (kDebugMode) {
           print("Full parsed response: $responseData");
         }
+        debugPrint("Full parsed response: $responseData");
 
         LoginEntity loginEntity = LoginEntity.fromJson(responseData);
 
@@ -290,17 +308,22 @@ class LoginController extends GetxController {
           if (kDebugMode) {
             print('Login successful!');
           }
+          debugPrint('Login successful!');
 
           await prefs.setString('order_id', orderID);
           await prefs.setString('mobile_number', mobileNumber);
           await prefs.setBool('isLoggedIn', true);
+
           await prefs.reload();
+
+          startAutoRefresh();
         }
       }
     } catch (e) {
       if (kDebugMode) {
-        print("Login failed: $e");
+        print("Login error: $e");
       }
+      debugPrint("Login error: $e");
     }
   }
 }
