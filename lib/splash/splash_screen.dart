@@ -7,8 +7,6 @@ import 'package:demoorder/utils/text_style.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import 'package:shared_preferences/shared_preferences.dart';
-
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -26,14 +24,8 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _navigateToNextScreen() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-
-    if (isLoggedIn) {
-      Get.offAllNamed(Routes.mainscreen); // Navigate to Main Screen
-    } else {
-      Get.offAllNamed(Routes.login); // Navigate to Login Screen
-    }
+    await Future.delayed(Duration(seconds: 3));
+    Get.offAllNamed(Routes.login);
   }
 
   @override
