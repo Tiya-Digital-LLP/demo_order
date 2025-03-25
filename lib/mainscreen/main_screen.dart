@@ -32,23 +32,30 @@ class _MainScreenState extends State<MainScreen> {
 
   // we must use static method, to handle in background
   @pragma('vm:entry-point')
-  static void _callback(NotificationEvent evt) {
+  void _callback(NotificationEvent evt) {
     if (kDebugMode) {
-      print("send evt to ui: $evt");
+      print("Received notification event: $evt");
     }
+    debugPrint("Received notification event: $evt");
     final SendPort? send = IsolateNameServer.lookupPortByName("_listener_");
-    if (send == null) {
+    if (send != null && evt.text != null && evt.text!.isNotEmpty) {
       if (kDebugMode) {
-        print("can't find the sender");
+        print("Sending notification text to isolate: ${evt.text}");
+      }
+      debugPrint("Sending notification text to isolate: ${evt.text}");
+    } else {
+      debugPrint("Notification received but NOT sent to isolate!");
+      if (kDebugMode) {
+        print("Notification received but NOT sent to isolate!");
       }
     }
-    send?.send(evt);
   }
 
   // Platform messages are asynchronous, so we initialize in an async method.
   Future<void> initPlatformState() async {
     NotificationsListener.initialize(callbackHandle: _callback);
 
+    // this can fix restart<debug> can't handle error
     IsolateNameServer.removePortNameMapping("_listener_");
     IsolateNameServer.registerPortWithName(port.sendPort, "_listener_");
     port.listen((message) => onData(message));
@@ -74,12 +81,6 @@ class _MainScreenState extends State<MainScreen> {
     if (kDebugMode) {
       print(event.toString());
     }
-    // Refresh login API when message is received
-    controller.login(
-      controller.order.value.text,
-      controller.mobile.value.text,
-      event.title ?? '',
-    );
   }
 
   final Map<String, dynamic> _trackingData = {
