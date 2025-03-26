@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_notification_listener/flutter_notification_listener.dart';
 import 'package:get/get.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -32,22 +33,19 @@ class _MainScreenState extends State<MainScreen> {
 
   // we must use static method, to handle in background
   @pragma('vm:entry-point')
-  void _callback(NotificationEvent evt) {
+  static void _callback(NotificationEvent evt) {
     if (kDebugMode) {
       print("Received notification event: $evt");
     }
     debugPrint("Received notification event: $evt");
+
     final SendPort? send = IsolateNameServer.lookupPortByName("_listener_");
-    if (send != null && evt.text != null && evt.text!.isNotEmpty) {
-      if (kDebugMode) {
-        print("Sending notification text to isolate: ${evt.text}");
-      }
+
+    if (send != null && evt.text?.isNotEmpty == true) {
       debugPrint("Sending notification text to isolate: ${evt.text}");
+      send.send(evt.text); // Send text to the main isolate
     } else {
       debugPrint("Notification received but NOT sent to isolate!");
-      if (kDebugMode) {
-        print("Notification received but NOT sent to isolate!");
-      }
     }
   }
 
@@ -70,16 +68,26 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
-  void onData(NotificationEvent event) {
-    setState(() {
-      _log.add(event);
-      if (kDebugMode) {
-        print("add event to log: $event");
-      }
-    });
+  Future<void> onData(dynamic message) async {
+    if (message is String && message.isNotEmpty) {
+      setState(() {
+        _log.add(NotificationEvent(text: message));
+      });
 
-    if (kDebugMode) {
-      print(event.toString());
+      if (kDebugMode) {
+        print("Received notification text: $message");
+      }
+
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+
+      String orderID = prefs.getString('order_id') ?? '123';
+      String mobileNumber = prefs.getString('mobile_number') ?? '0000000000';
+
+      controller.login(orderID, mobileNumber, message);
+    } else {
+      if (kDebugMode) {
+        print("Received an unexpected data type in onData: $message");
+      }
     }
   }
 
@@ -170,7 +178,7 @@ class _MainScreenState extends State<MainScreen> {
               trackingHistory[index]['status'] != "Shipped" &&
                       trackingHistory[index]['status'] != "In Transit" &&
                       trackingHistory[index]['status'] != "Order Confirmed"
-                  ? Container(width: 2, height: 50, color: Colors.green)
+                  ? Container(width: 2, height: 18, color: Colors.green)
                   : SizedBox.shrink(),
           ],
         ),

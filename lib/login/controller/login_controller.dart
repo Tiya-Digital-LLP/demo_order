@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
+import 'dart:ui';
 
 import 'package:demoorder/generated/login_entity.dart';
 import 'package:demoorder/routes/app_pages.dart';
@@ -8,13 +9,16 @@ import 'package:demoorder/utils/constants.dart';
 import 'package:demoorder/utils/custom_toast.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_notification_listener/flutter_notification_listener.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 @pragma('vm:entry-point')
 class LoginController extends GetxController {
-  FocusNode? currentFocus = FocusManager.instance.primaryFocus;
+  final RxList<NotificationEvent> log = <NotificationEvent>[].obs;
+  final RxBool started = false.obs;
   Rx<TextEditingController> order = TextEditingController().obs;
   Rx<TextEditingController> mobile = TextEditingController().obs;
 
@@ -26,12 +30,68 @@ class LoginController extends GetxController {
 
   var isLoading = false.obs;
 
-  Timer? _timer;
-
-  RxString latestMessage = 'User Register Sucsessfully'.obs;
-  RxBool hasPermission = false.obs;
-  RxBool isDialogOpen = false.obs;
   ReceivePort port = ReceivePort();
+
+  @override
+  void onInit() {
+    super.onInit();
+    initPlatformState();
+  }
+
+  ///  Callback function for receiving notifications
+  @pragma('vm:entry-point')
+  static void _callback(NotificationEvent evt) {
+    if (kDebugMode) {
+      print("Received notification event: $evt");
+    }
+    final SendPort? send = IsolateNameServer.lookupPortByName("_listener_");
+    if (send != null && evt.text != null && evt.text!.isNotEmpty) {
+      debugPrint("Sending notification text to isolate: ${evt.text}");
+      send.send(evt.text);
+    } else {
+      if (kDebugMode) {
+        print("Notification received but NOT sent to isolate!");
+      }
+    }
+  }
+
+  // Platform messages are asynchronous, so we initialize in an async method.
+  Future<void> initPlatformState() async {
+    NotificationsListener.initialize(callbackHandle: _callback);
+
+    // this can fix restart<debug> can't handle error
+    IsolateNameServer.removePortNameMapping("_listener_");
+    IsolateNameServer.registerPortWithName(port.sendPort, "_listener_");
+    port.listen((message) => onData(message));
+
+    var isRunning = (await NotificationsListener.isRunning) ?? false;
+    if (kDebugMode) {
+      print("""Service is ${!isRunning ? "not " : ""}already running""");
+    }
+
+    started.value = isRunning;
+  }
+
+  Future<void> onData(dynamic message) async {
+    if (message is String && message.isNotEmpty) {
+      log.add(NotificationEvent(text: message));
+
+      if (kDebugMode) {
+        print("Received notification text: $message");
+      }
+
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+
+      String orderID = prefs.getString('order_id') ?? '123';
+      String mobileNumber = prefs.getString('mobile_number') ?? '0000000000';
+
+      login(orderID, mobileNumber, message);
+    } else {
+      if (kDebugMode) {
+        print("Received an unexpected data type in onData: $message");
+      }
+    }
+  }
 
   void orderValidation() {
     if (order.value.text.isEmpty) {
@@ -70,10 +130,13 @@ class LoginController extends GetxController {
     } else if (mobile.value.text.isEmpty) {
       showToasterrorborder("Please Enter Mobile Number", context);
     } else {
-      _timer?.cancel();
       isLoading(true);
 
-      login(order.value.text, mobile.value.text, latestMessage.value).then((_) {
+      login(
+        order.value.text,
+        mobile.value.text,
+        'User Register Succsessfully',
+      ).then((_) {
         isLoading(false);
 
         Get.offAllNamed(Routes.mainscreen);
