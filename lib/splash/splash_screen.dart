@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:demoorder/generated/assets.dart';
 import 'package:demoorder/login/controller/login_controller.dart';
 import 'package:demoorder/routes/app_pages.dart';
 import 'package:demoorder/utils/app_colors.dart';
@@ -14,12 +13,46 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen>
+    with TickerProviderStateMixin {
   final LoginController controller = Get.put(LoginController());
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
+
+  late AnimationController _slideController;
+  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
     super.initState();
+
+    // Fade animation for "V"
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: Duration(seconds: 1),
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeIn,
+    );
+
+    // Slide animation for "Velvero"
+    _slideController = AnimationController(
+      vsync: this,
+      duration: Duration(seconds: 1),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: Offset(-1.5, 0),
+      end: Offset(0, 0),
+    ).animate(
+      CurvedAnimation(parent: _slideController, curve: Curves.easeInOut),
+    );
+
+    _fadeController.forward();
+    Future.delayed(Duration(milliseconds: 500), () {
+      _slideController.forward();
+    });
+
     _navigateToNextScreen();
   }
 
@@ -29,25 +62,44 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   @override
+  void dispose() {
+    _fadeController.dispose();
+    _slideController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Container(
-        height: double.infinity,
-        width: double.infinity,
-        color: AppColors.white,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(width: 200, child: Image.asset(Assets.imagesLogo)),
-            Text(
-              'OrderApp',
-              style: textStyleW700(size.width * 0.042, AppColors.blackText),
+      body: Stack(
+        children: [
+          // Center fade-in text
+          Center(
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: Text('V', style: textStyleW700(100, AppColors.blackText)),
             ),
-          ],
-        ),
+          ),
+
+          // Bottom slide-in text
+          Positioned(
+            bottom: 50,
+            left: 0,
+            right: 0,
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: Center(
+                child: Text(
+                  'Velvero',
+                  style: textStyleW700(size.width * 0.052, AppColors.blackText),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

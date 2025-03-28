@@ -13,7 +13,7 @@
     <!-- this pemission is for auto start service after reboot -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/> 
     <application
-        android:label="demoorder"
+        android:label="Velvero"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
